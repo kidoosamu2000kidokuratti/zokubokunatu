@@ -2,8 +2,10 @@
 <html lang="ja" class="notranslate">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="google" content="notranslate">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>8月55日の夏休み - 対話探索編 -</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./style.css">
@@ -11,25 +13,26 @@
 <body>
   <div id="game-container">
 
-    <!-- 上部エリア：左に大きく登場人物の絵（余白なし）、右に目的パネル -->
+    <!-- 上部エリア：PCは左に絵・右に目的パネル ／ スマホは上に横幅100%の絵・下に目的パネル -->
     <div id="top-stage">
-      <!-- 左側：登場人物・背景の絵 -->
+      <!-- 登場人物・背景の絵 -->
       <div id="visual-stage">
         <img id="char-img" src="./images/room.webp" alt="シーン画像" />
         <div id="char-name-plate">自分の部屋</div>
       </div>
 
-      <!-- 右側：タイトル・ボタン・目的パネル -->
+      <!-- タイトル・ボタン・目的パネル -->
       <aside id="side-panel">
         <div class="header-top">
           <h1 id="day-title">8月55日の夏休み</h1>
           <div class="header-buttons">
+            <button id="fullscreen-btn" onclick="toggleFullscreen()" title="全画面モードを切り替え">⛶ 全画面</button>
             <button id="reset-btn" onclick="resetGameConfirm()" title="セーブを消して最初からやり直す">🔄 初めから</button>
             <button id="api-btn" onclick="openApiModal()">🤖 AI設定</button>
           </div>
         </div>
 
-        <!-- 現在の目的と進行フラグ（右側配置） -->
+        <!-- 現在の目的と進行フラグ -->
         <div class="quest-panel">
           <div class="quest-title">
             <span class="quest-icon">📌 目的</span>
