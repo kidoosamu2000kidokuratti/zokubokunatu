@@ -15,13 +15,15 @@ body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
-/* 全体のコンテナ（前のサイズ感） */
+/* 全体のコンテナ（PCでのサイズ感） */
 #game-container {
   width: 100%;
   max-width: 680px;
   height: 94vh;
+  height: 94dvh;
   background: #141414;
   border-radius: 10px;
   display: flex;
@@ -32,8 +34,17 @@ body {
   border: 1px solid #333;
 }
 
+/* 全画面モード時は余白なくフィット */
+:fullscreen #game-container,
+:-webkit-full-screen #game-container {
+  height: 100vh;
+  height: 100dvh;
+  border-radius: 0;
+  border: none;
+}
+
 /* =========================================
-   上部エリア（左：余白なしの絵 ／ 右：目的パネル）
+   上部エリア（PC：左に絵 ／ 右に目的パネル）
    ========================================= */
 #top-stage {
   display: flex;
@@ -44,7 +55,7 @@ body {
   background: #000;
 }
 
-/* 左側：絵が余白なくピタッと埋まる領域 */
+/* 左側：絵が表示される領域 */
 #visual-stage {
   flex: 1;
   position: relative;
@@ -56,8 +67,8 @@ body {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;          /* 余白を一切作らず枠いっぱいに埋める */
-  object-position: center top; /* 人物の顔〜上半身が綺麗に入るよう上中央基準 */
+  object-fit: cover;
+  object-position: center top;
 }
 
 #char-name-plate {
@@ -108,7 +119,7 @@ h1 {
   flex-wrap: wrap;
 }
 
-#api-btn, #char-btn {
+.header-buttons button {
   flex: 1;
   background: #2b2b2b;
   color: #ddd;
@@ -120,7 +131,7 @@ h1 {
   white-space: nowrap;
 }
 
-#char-btn:hover, #api-btn:hover {
+.header-buttons button:hover {
   background: #444;
 }
 
@@ -321,9 +332,12 @@ footer#controls {
 /* 条件クリア時の次へ進むボタン */
 #next-action-box {
   margin-top: 8px;
+  flex-direction: column;
+  gap: 6px;
   animation: popUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+.next-stage-btn,
 #next-stage-btn {
   width: 100%;
   padding: 11px;
@@ -433,13 +447,112 @@ footer#controls {
   font-weight: bold;
 }
 
-/* スマホなど横幅が狭い画面でも見やすいよう右パネル幅を自動調整 */
-@media (max-width: 480px) {
-  #side-panel {
-    width: 155px;
-    padding: 8px;
+/* =========================================
+   スマホ縦画面向け：絵の横が切れずPCと同じ比率で見せる
+   ========================================= */
+@media (max-width: 600px) {
+  #game-container {
+    max-width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0;
+    border: none;
   }
+
+  #top-stage {
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+  }
+
+  #visual-stage {
+    flex: none;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    max-height: 36dvh;
+    background: #000;
+  }
+
+  #char-img {
+    object-fit: contain;
+    object-position: center center;
+  }
+
+  #side-panel {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid #333;
+    padding: 6px 10px;
+    gap: 6px;
+    overflow: visible;
+  }
+
+  .header-top {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 5px;
+    gap: 6px;
+  }
+
   h1 {
     font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .header-buttons {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .header-buttons button {
+    flex: none;
+    padding: 4px 6px;
+    font-size: 0.68rem;
+  }
+
+  .quest-panel {
+    padding: 5px 8px;
+    gap: 4px;
+  }
+
+  .quest-title {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    line-height: 1.3;
+  }
+
+  .quest-icon {
+    display: inline;
+    margin-bottom: 0;
+    font-size: 0.74rem;
+    white-space: nowrap;
+  }
+
+  #quest-text {
+    font-size: 0.75rem;
+  }
+
+  .quest-flags {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 0;
+  }
+
+  .flag-badge {
+    padding: 2px 7px;
+    font-size: 0.68rem;
+  }
+
+  main#screen {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  footer#controls {
+    padding: 8px 10px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }
 }
