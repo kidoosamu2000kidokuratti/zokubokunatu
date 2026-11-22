@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja" class="notranslate">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google" content="notranslate">
+  <title>8月55日の夏休み - 対話探索編 -</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="game-container">
+
+    <!-- 上部エリア：左に大きく登場人物の絵（余白なし）、右に目的パネル -->
+    <div id="top-stage">
+      <!-- 左側：登場人物・背景の絵 -->
+      <div id="visual-stage">
+        <img id="char-img" src="./images/room.webp" alt="シーン画像" />
+        <div id="char-name-plate">自分の部屋</div>
+      </div>
+
+      <!-- 右側：タイトル・ボタン・目的パネル -->
+      <aside id="side-panel">
+        <div class="header-top">
+          <h1 id="day-title">8月55日の夏休み</h1>
+          <div class="header-buttons">
+            <button id="reset-btn" onclick="resetGameConfirm()" title="セーブを消して最初からやり直す">🔄 初めから</button>
+            <button id="api-btn" onclick="openApiModal()">🤖 AI設定</button>
+          </div>
+        </div>
+
+        <!-- 現在の目的と進行フラグ（右側配置） -->
+        <div class="quest-panel">
+          <div class="quest-title">
+            <span class="quest-icon">📌 目的</span>
+            <div id="quest-text">ゲームを開始してください</div>
+          </div>
+          <div id="quest-flags" class="quest-flags"></div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- 下部エリア：文字が出るところ（メッセージ＆チャットログ） -->
+    <main id="screen">
+      <div id="text-display"></div>
+    </main>
+
+    <!-- 操作用エリア -->
+    <footer id="controls">
+      <div id="system-msg">「ゲーム開始」ボタンを押してください</div>
+
+      <!-- スタートボタン -->
+      <div id="command-box">
+        <button id="start-btn" onclick="openRuleModal()">ゲーム開始</button>
+      </div>
+
+      <!-- 対話用チャット入力フォーム -->
+      <div id="chat-box" style="display: none;">
+        <input type="text" id="user-input" placeholder="話しかける内容を入力" autocomplete="off" />
+        <button id="send-btn" onclick="sendMessage()">話す</button>
+      </div>
+
+      <!-- 条件達成時に出現する次への進行ボタン -->
+      <div id="next-action-box" style="display: none;"></div>
+    </footer>
+
+
+    <!-- ルール説明ダイアログ -->
+    <div id="rule-modal" class="modal-overlay">
+      <div class="modal-content">
+        <h2>【続、ぼくが夏休み】</h2>
+        <p>登場人物と自由に会話してキーワードを引き出し、いろんな場所へ出かけて夏休みを満喫するゲームです。</p>
+        <p>1日が終わるとオートセーブされます。8月55日から始まり、8月58日まで終えると9月1日になってクリアです！</p>
+        <p>エンディングについてはAIが勝手に作ったものになります。性格の悪さが出てますが、製作者の意図ではありません。</p>
+        <button class="btn-modal-start" id="modal-start-btn" onclick="closeRuleModalAndStart()">夏休みを始める</button>
+      </div>
+    </div>
+
+    <!-- APIキー設定ダイアログ -->
+    <div id="api-modal" class="modal-overlay">
+      <div class="modal-content">
+        <h2>【🤖 Gemini AI 設定】</h2>
+        <p>Google AI StudioのAPIキーを入力すると、AIによる自由な会話に切り替わります。</p>
+        <input type="password" id="api-key-input" placeholder="APIキーを入力" class="api-input" />
+        <div style="display: flex; gap: 8px; margin-top: 16px;">
+          <button class="btn-modal-start" style="margin-top:0;" onclick="saveApiKey()">保存して閉じる</button>
+          <button class="btn-retry" style="margin-top:0; background:#555;" onclick="closeApiModal()">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- リザルト・クリアパネル -->
+    <div id="ending-panel" style="display: none;">
+      <h2 id="ending-title"></h2>
+      <p id="ending-msg"></p>
+      <button class="btn-retry" onclick="resetAndStartNewGame()">↻ セーブを消して最初から遊ぶ</button>
+    </div>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>
