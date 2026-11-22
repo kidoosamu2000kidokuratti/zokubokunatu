@@ -241,11 +241,32 @@ let shopPs12Flags = { version: false, chestnut: false, game: false };
 let unlockedToday = [];
 let cinemaAsked = { movie1: false, movie2: false, movie3: false };
 let taxiFlatterCount = 0;
+let taxiUsedFlatterGroups = new Set(); // ★ 末広涼子への同じ褒めワード連打防止
+let taxiUsedInputs = new Set();        // ★ 同じ発言の使い回し防止
 let dinnerTalkCount = 0;
 let scalperFlags = { affair: false, marcia: false };
 let scalperMarciaCount = 0;
 let farmerFlags = { sugar: false, variety: false, natural: false };
 let farmerTalkCount = 0;
+
+// ★ 末広涼子の褒めワード同義語グループ定義
+const TAXI_FLATTER_GROUPS = [
+  { key: "kawaii",       pattern: /かわいい|可愛い|カワイイ/ },
+  { key: "kirei",        pattern: /綺麗|きれい|キレイ|美人|美しい/ },
+  { key: "suteki",       pattern: /素敵|すてき|魅力/ },
+  { key: "saikou",       pattern: /最高|素晴らしい/ },
+  { key: "umai",         pattern: /上手|うまい|天才|流石|さすが/ },
+  { key: "megami",       pattern: /女神|天使/ },
+  { key: "suki",         pattern: /好き|大好き|ファン|応援/ },
+  { key: "niau",         pattern: /似合|おしゃれ|オシャレ/ },
+  { key: "yasashii",     pattern: /優しい|やさしい/ },
+  { key: "kagayaku",     pattern: /輝いて/ },
+  { key: "kakkoii",      pattern: /かっこいい|カッコいい/ },
+  { key: "kimochi",      pattern: /きもち|気持ち/ },
+  { key: "arigato",      pattern: /ありがと/ },
+  { key: "wakawakashii", pattern: /若々しい|若い/ },
+  { key: "sugoi",        pattern: /すごい|凄い|スゴい/ }
+];
 
 function getInitialGameState() {
   return {
@@ -737,19 +758,19 @@ async function handleShopConversation(userText) {
     shopPs12Flags[selectedPs12Topic] = true;
   }
 
-  let topicInstruction = "プレイヤーと楽しく世間話をしてください。";
+  let topicInstruction = "プレイヤーと楽しくふざけながら世間話をしてください。";
   if (selectedPs12Topic === "soldout") {
     topicInstruction =
-      "プレイヤーがプレステ12を買いたがっていますが、『ごめんなさいね！ 今日のプレステ12は開店3秒で売り切れ（完売）ちゃったのよ！ 次回の入荷は西暦3000年頃なの！』と売り切れであることを強調して教えてください。";
+      "プレイヤーがプレステ12を買いたがっていますが、『ごめんなさいね！ 今日のプレステ12は開店3秒で売り切れ（完売）ちゃったのよ！ 次回の入荷は西暦3000年頃なの！』と売り切れであることを大げさに面白く強調して教えてください。";
   } else if (selectedPs12Topic === "version") {
     topicInstruction =
-      "プレステ12の本体バージョンが『食べるメロンソーダ味色の竹槍バージョン』と『錦織圭の調子がいい時の歯茎色フェラーリバージョン』の2種類であることを教えてください。";
+      "プレステ12の本体バージョンが『食べるメロンソーダ味色の竹槍バージョン』と『錦織圭の調子がいい時の歯茎色フェラーリバージョン』の2種類であることをドヤ顔っぽく楽しく教えてください。";
   } else if (selectedPs12Topic === "chestnut") {
     topicInstruction =
-      "プレステ12の起動方法はコントローラーの穴に「天津甘栗」をはめ込むことだと教えてください。";
+      "プレステ12の起動方法はコントローラーの穴に「天津甘栗」をはめ込むことだと、さも当然の最新技術かのように面白く教えてください。";
   } else if (selectedPs12Topic === "game") {
     topicInstruction =
-      "プレステ12の同梱ソフトは『カラテカ2』（デヴィ武人主演）だと教えてください。";
+      "プレステ12の同梱ソフトは『カラテカ2』（デヴィ武人主演）だと、ノリよく盛り上げながら教えてください。";
   }
 
   let reply = "";
@@ -758,12 +779,12 @@ async function handleShopConversation(userText) {
   } else {
     const recentLog = getRecentHistoryText();
     const prompt =
-      `あなたは8月${gameState.day}日の夏休みにいるゲームショップ店員「宮川りえ」です。\n` +
-      `口癖は「ぶっとびー！」「すったもんだがありまして」です（会話の流れに自然なときだけ使ってください）。\n` +
+      `あなたは8月${gameState.day}日の夏休みにいる、明るくてお調子者な不条理ギャグ世界のゲームショップ店員「宮川りえ」です。\n` +
+      `口癖は「ぶっとびー！」「すったもんだがありまして」です（会話の流れに自然なタイミングでノリよく使ってください）。\n` +
       `【会話のルール】\n` +
-      `1. まずはプレイヤーの直前の発言（質問・ツッコミ・感想・挨拶）に真っ正面から反応し、会話のキャッチボールを成立させてください。\n` +
-      `2. プレイヤーが疑問文やツッコミを入れたときは、はぐらかさず必ずその内容を受けてからリアクションしてください。\n` +
-      `3. 脈絡のない奇想天外なネタを無理にねじ込まず、直近の会話の流れと8月${gameState.day}日・プレステ12・夏休みの文脈に沿った返答にしてください（2〜3文程度、普通のセリフ文章のみで出力）。\n\n` +
+      `1. まずはプレイヤーの直前の発言（質問・ツッコミ・感想・挨拶）に真っ正面から反応し、会話のキャッチボールを必ず成立させてください。\n` +
+      `2. プレイヤーの質問やツッコミをスルーせずちゃんと受けたうえで、「ちょっとズレた自信満々な理屈」「大げさな例え」「バブル風の軽いノリ」「思わずツッコミたくなる小ボケ」を混ぜて、ふざけた面白い返しにしてください。\n` +
+      `3. 話を無関係な別話題に飛ばさず、今の会話の流れと8月${gameState.day}日・プレステ12・夏休みの文脈に沿ってふざけてください（2〜3文程度、普通のセリフ文章のみで出力）。\n\n` +
       `【直近の会話履歴】\n${recentLog}\n\n` +
       `【今回の返答指示】\n${topicInstruction}`;
 
@@ -955,6 +976,8 @@ async function startDinnerShowScene() {
   document.getElementById("text-display").innerHTML = "";
 
   taxiFlatterCount = 0;
+  taxiUsedFlatterGroups = new Set();
+  taxiUsedInputs = new Set();
 
   updateQuestHeader(
     "タクシー運転手・末広涼子と会話して出発してもらう",
@@ -973,7 +996,7 @@ async function startDinnerShowScene() {
 
   await streamNpcChat(
     "タクシー運転手・末広涼子",
-    "「末広です！！\n本日は１８５キロの安全運転で行かさせていただきます……！！」"
+    "「末広です！！\n本日は１８５キロの安全運転で行かさせていただきます……！！\n出発する前にもっときもちくしてくださいね……！」"
   );
 
   enableChatInput();
@@ -990,7 +1013,7 @@ async function handleTaxiConversation(userText) {
   if (/マジで恋する５秒前|マジで恋する五秒前|まじでこいする/.test(userText)) {
     await streamNpcChat(
       "タクシー運転手・末広涼子",
-      "「♪〜……！\nずっとまえから〜彼のこと〜、好き～だった〜……って、乗客さん、いきなり名曲をぶっ込んでこないでください！！ でもノリがいいから嫌いじゃないわ……！」"
+      "「♪〜……！\nずっとまえから〜彼のこと〜、好き～だった〜……って、乗客さん、いきなり名曲をぶっ込んでこないでください！！ でもノリがいいからちょっときもちく……いや、嫌いじゃないわ……！」"
     );
     enableChatInput();
     return;
@@ -1008,13 +1031,21 @@ async function handleTaxiConversation(userText) {
     return;
   }
 
-  const isFlatter =
-    /かわいい|可愛い|綺麗|きれい|キレイ|美人|素敵|すてき|最高|上手|うまい|天才|女神|好き|大好き|ファン|応援|似合|優しい|輝いて|素晴らしい|流石|さすが|かっこいい|カッコいい|きもち|気持ち|ありがと|魅力|天使|若々しい|おしゃれ|オシャレ|すごい|凄い/.test(
-      userText
-    );
+  // ★ 同じ褒めワード・同じセリフの使い回しをチェック
+  const normalizedInput = userText.replace(/[\s！!？?。、…〜~・（）()「」『』]/g, "");
+  const matchedGroups = TAXI_FLATTER_GROUPS.filter((g) => g.pattern.test(userText)).map((g) => g.key);
+  const newGroups = matchedGroups.filter((key) => !taxiUsedFlatterGroups.has(key));
+  const isDuplicateInput = taxiUsedInputs.has(normalizedInput);
 
-  if (isFlatter) {
-    taxiFlatterCount += 1;
+  let isRepeatedFlatter = false;
+  if (matchedGroups.length > 0) {
+    if (!isDuplicateInput && newGroups.length > 0) {
+      taxiFlatterCount += 1;
+      matchedGroups.forEach((key) => taxiUsedFlatterGroups.add(key));
+      taxiUsedInputs.add(normalizedInput);
+    } else {
+      isRepeatedFlatter = true;
+    }
   }
 
   updateQuestHeader(
@@ -1027,51 +1058,68 @@ async function handleTaxiConversation(userText) {
   );
 
   const recentLog = getRecentHistoryText();
-  const taxiGoalInstruction =
-    taxiFlatterCount >= 3
-      ? `乗客に3回褒められて最高に「きもちく」なったので、直前の発言に嬉しく反応したあと、最後に必ず「車に入ってくれてありがとう！！ それでは１８５キロの安全運転で行かさせていただきます！！」と叫んで出発してください。`
-      : taxiFlatterCount === 2
-      ? `乗客に2回褒められてかなり「きもちく」なってきたので、直前の発言にしっかり喜びつつ「あと1回だけおだててもらえたら出発します」と伝えてください。`
-      : taxiFlatterCount === 1
-      ? `乗客に褒められて少しずつ「きもちく」なってきたので、直前の発言に照れながら反応しつつ「もっとおだててほしい」と伝えてください。`
-      : `直前の発言に真っ正面から反応したうえで、もっと自分の美貌や運転を褒めておだててほしいと情緒たっぷりにねだってください。`;
+  let taxiGoalInstruction = "";
+  if (isRepeatedFlatter) {
+    taxiGoalInstruction =
+      `乗客がさっきと同じ褒め言葉や同じフレーズを使い回してきました。「さっきも同じ褒め言葉でしたよね！？ 同じ言葉の使い回しじゃ全然きもちくなれません！ 別の言葉や別のポイントで褒めてきもちくしてください！」とツッコんでください（まだ出発しないでください）。`;
+  } else if (taxiFlatterCount >= 3) {
+    taxiGoalInstruction =
+      `乗客に3パターンの違う言葉で褒められて最高に「きもちく」なったので、直前の発言に嬉しく反応しつつ「すごくきもちくなりました！」と伝えたあと、最後に必ず「車に入ってくれてありがとう！！ それでは１８５キロの安全運転で行かさせていただきます！！」と叫んで出発してください。`;
+  } else if (taxiFlatterCount === 2) {
+    taxiGoalInstruction =
+      `乗客に2回褒められてかなり「きもちく」なってきたので、直前の発言にしっかり喜びつつ「すごくきもちくなってきました…あと1回だけ別の言葉でおだててきもちくしてくれたら出発します」と伝えてください。`;
+  } else if (taxiFlatterCount === 1) {
+    taxiGoalInstruction =
+      `乗客に褒められて少しずつ「きもちく」なってきたので、直前の発言に照れながら反応しつつ「なんだかきもちくなってきました…もっと違う言葉でもおだててきもちくしてほしい」と伝えてください。`;
+  } else {
+    taxiGoalInstruction =
+      `直前の発言に真っ正面から反応したうえで、「もっと自分の美貌や運転を褒めてきもちくしてほしい」と情緒たっぷりにねだってください。`;
+  }
 
   const prompt =
     `あなたはタクシー運転手の「末広涼子」（モデルは広末涼子）。少し情緒不安定でハイテンションな性格です。\n` +
-    `口癖は「末広です」「１８５キロの安全運転で行かさせていただきます」（会話の流れに自然なときに入れてください）。\n` +
+    `口癖は「末広です」「１８５キロの安全運転で行かさせていただきます」です。\n` +
+    `また、自分の気分が良くなることを「気持ちよく」ではなく必ずひらがなで「きもちく」と言います（例：「きもちくなってきました」「もっときもちくしてください」「それじゃきもちくなれません！」）。\n` +
     `【会話のルール】\n` +
     `1. まずは乗客（プレイヤー）の直前の発言（質問・ツッコミ・感想・褒め言葉）に真っ正面から反応し、会話のキャッチボールを成立させてください。\n` +
     `2. 「185キロは危なくない？」「なんで出発しないの？」等の疑問やツッコミにもはぐらかさず、彼女なりの理屈や感情でちゃんと答えてください。\n` +
-    `3. 2〜3文程度の普通のセリフ文章のみで出力してください。\n\n` +
+    `3. 返答の中に必ず「きもちく」というひらがなのワードを1〜2回自然に入れてください（「気持ちよく」とは書かないでください）。\n` +
+    `4. 2〜3文程度の普通のセリフ文章のみで出力してください。\n\n` +
     `【直近の会話履歴】\n${recentLog}\n\n` +
     `【今回の返答指示】\n${taxiGoalInstruction}`;
 
   const aiText = await callGeminiFast(prompt);
 
-  if (taxiFlatterCount === 0) {
+  if (isRepeatedFlatter) {
     const reply =
       aiText ||
-      "「末広です……！ もっと褒めておだててもらえたら、きもちくなれる気がするんです……！」";
+      "「ちょっと乗客さん、末広です！！ さっきも同じ褒め言葉でしたよね！？ 同じ言葉の使い回しじゃ全然きもちくなれません！ 別の言葉で褒めてきもちくしてください……！」";
+    await streamNpcChat("タクシー運転手・末広涼子", reply);
+    enableChatInput();
+  } else if (taxiFlatterCount === 0) {
+    const reply =
+      aiText ||
+      "「末広です……！ もっと褒めておだててもらえたら、きもちくなれる気がするんです……私をきもちくしてください……！」";
     await streamNpcChat("タクシー運転手・末広涼子", reply);
     enableChatInput();
   } else if (taxiFlatterCount === 1) {
     const reply =
       aiText ||
-      "「えっ……！？ 末広です……！ そんなふうに褒めてもらえるなんて……！\nなんだかきもちくなってきました……もっとおだててくれたら嬉しいです……！」";
+      "「えっ……！？ 末広です……！ そんなふうに褒めてもらえるなんて……！\nなんだかきもちくなってきました……もっと別の言葉でおだててきもちくしてくれたら嬉しいです……！」";
     await streamNpcChat("タクシー運転手・末広涼子", reply);
     enableChatInput();
   } else if (taxiFlatterCount === 2) {
     const reply =
       aiText ||
-      "「きゃあぁ……！ 末広です！！ すごくきもちくなってきました……あと１回おだててもらえたら、１８５キロの安全運転で行かさせていただきます……！」";
+      "「きゃあぁ……！ 末広です！！ すごくきもちくなってきました……あと１回だけ違う言葉でおだててきもちくしてくれたら、１８５キロの安全運転で行かさせていただきます……！」";
     await streamNpcChat("タクシー運転手・末広涼子", reply);
     enableChatInput();
   } else {
     let reply =
       aiText ||
-      "「車に入ってくれてありがとう！！\nそれでは、１８５キロの安全運転で行かさせていただきますーーっ！！」";
+      "「ああっ、最高にきもちくなりました！！ 車に入ってくれてありがとう！！\nそれでは、１８５キロの安全運転で行かさせていただきますーーっ！！」";
     if (!reply.includes("車に入ってくれてありがとう")) {
-      reply += "\n「車に入ってくれてありがとう！！ それでは、１８５キロの安全運転で行かさせていただきますーーっ！！」";
+      reply += "\n「最高にきもちくなりました！ 車に入ってくれてありがとう！！ それでは、１８５キロの安全運転で行かさせていただきますーーっ！！」";
     }
     await streamNpcChat("タクシー運転手・末広涼子", reply);
     await startDinnerShowVenuePart();
