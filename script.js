@@ -132,6 +132,51 @@ function handleCharUpload(event) {
 }
 
 // ====================================================
+// 📱 全画面モード切替（Android Chrome / PC対応）
+// ====================================================
+function updateFullscreenButton() {
+  const btn = document.getElementById("fullscreen-btn");
+  if (!btn) return;
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  btn.innerText = isFs ? "✕ 解除" : "⛶ 全画面";
+}
+
+async function toggleFullscreen() {
+  const docEl = document.documentElement;
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+  try {
+    if (!isFs) {
+      if (docEl.requestFullscreen) {
+        await docEl.requestFullscreen({ navigationUI: "hide" });
+      } else if (docEl.webkitRequestFullscreen) {
+        docEl.webkitRequestFullscreen();
+      } else {
+        const sysMsg = document.getElementById("system-msg");
+        if (sysMsg) {
+          sysMsg.innerText = "※このブラウザは全画面API非対応です（ホーム画面に追加すると広く表示できます）";
+        }
+      }
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+  } catch (e) {
+    const sysMsg = document.getElementById("system-msg");
+    if (sysMsg) {
+      sysMsg.innerText = "全画面の切り替えに失敗しました。画面をタップしてから再度お試しください。";
+    }
+  }
+  updateFullscreenButton();
+}
+
+document.addEventListener("fullscreenchange", updateFullscreenButton);
+document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
+
+// ====================================================
 // 🔊 男女別・ボボボボ効果音
 // ====================================================
 function playVoiceBeep(voiceType = "story") {
@@ -172,6 +217,25 @@ function detectVoiceType(speaker) {
 let gameState = getInitialGameState();
 let currentScene = "intro";
 let isTyping = false;
+
+// ★ 全キャラ共通の会話履歴管理（キャッチボール用）
+let chatHistory = [];
+
+function resetChatHistory() {
+  chatHistory = [];
+}
+
+function recordChatHistory(speaker, text) {
+  chatHistory.push({ speaker, text });
+  if (chatHistory.length > 8) {
+    chatHistory = chatHistory.slice(-8);
+  }
+}
+
+function getRecentHistoryText() {
+  if (chatHistory.length === 0) return "（これまでの会話なし）";
+  return chatHistory.map((h) => `${h.speaker}: ${h.text}`).join("\n");
+}
 
 let shopPs12Flags = { version: false, chestnut: false, game: false };
 let unlockedToday = [];
@@ -282,6 +346,7 @@ function updateApiButtonStatus() {
 document.addEventListener("DOMContentLoaded", () => {
   setSceneVisual("room");
   updateApiButtonStatus();
+  updateFullscreenButton();
 
   if (loadGameData()) {
     updateDayHeader();
@@ -371,6 +436,7 @@ function startGame() {
 
 async function startMorningRoomScene() {
   currentScene = "morning_room";
+  resetChatHistory();
   updateDayHeader();
   setSceneVisual("room", `自分の部屋（8月${gameState.day}日・朝）`);
   document.getElementById("text-display").innerHTML = "";
@@ -451,6 +517,7 @@ function buildHubQuestFlags() {
 
 async function enterShopScene() {
   currentScene = "shop";
+  resetChatHistory();
   setSceneVisual("shop");
 
   let greeting = "";
@@ -689,9 +756,15 @@ async function handleShopConversation(userText) {
   if (specialReaction) {
     reply = specialReaction;
   } else {
+    const recentLog = getRecentHistoryText();
     const prompt =
-      `あなたは不条理ギャグゲームのゲームショップ店員「宮川りえ」。口癖は「ぶっとびー！」「すったもんだがありまして」。\n` +
-      `プレイヤーの発言「${userText}」に対して、2〜3文でノリよく面白く返答してください（普通のセリフ文章のみで出力）。\n` +
+      `あなたは8月${gameState.day}日の夏休みにいるゲームショップ店員「宮川りえ」です。\n` +
+      `口癖は「ぶっとびー！」「すったもんだがありまして」です（会話の流れに自然なときだけ使ってください）。\n` +
+      `【会話のルール】\n` +
+      `1. まずはプレイヤーの直前の発言（質問・ツッコミ・感想・挨拶）に真っ正面から反応し、会話のキャッチボールを成立させてください。\n` +
+      `2. プレイヤーが疑問文やツッコミを入れたときは、はぐらかさず必ずその内容を受けてからリアクションしてください。\n` +
+      `3. 脈絡のない奇想天外なネタを無理にねじ込まず、直近の会話の流れと8月${gameState.day}日・プレステ12・夏休みの文脈に沿った返答にしてください（2〜3文程度、普通のセリフ文章のみで出力）。\n\n` +
+      `【直近の会話履歴】\n${recentLog}\n\n` +
       `【今回の返答指示】\n${topicInstruction}`;
 
     const aiText = await callGeminiFast(prompt);
@@ -767,6 +840,7 @@ function buildShopFallbackReply(userText, selectedPs12Topic) {
 // ====================================================
 async function startCinemaScene() {
   currentScene = "cinema";
+  resetChatHistory();
   setSceneVisual("cinema");
   clearActionButtons();
   document.getElementById("chat-box").style.display = "none";
@@ -841,10 +915,15 @@ async function handleCinemaConversation(userText) {
   else if (targetMovie === 2) fallbackWord = "鳩の逆襲";
   else if (targetMovie === 3) fallbackWord = "全勝少年";
 
+  const recentLog = getRecentHistoryText();
   const prompt =
-    `あなたは映画館店員の「ｎｉｋｋｏ」（モデルはIKKO）。\n` +
+    `あなたは映画館店員の「ｎｉｋｋｏ」（モデルはIKKO）です。\n` +
     `上映中の映画は①『カバからしたら大福は食べてないのに等しい』（キモタク主演の恋愛映画）、②『ランディ・ジョンソンにデッドボールを受けた鳩の逆襲』、③『スパイダーマン』（全ての叶姉妹にジャンケンで勝てる少年）です。\n` +
-    `プレイヤーの質問「${userText}」に対して、その内容を表す面白い日本語【ぴったり4文字のみ】を出力してください（例：キモタク、大福ゼロ、鳩の逆襲、剛速球鳩、全勝少年、叶に全勝 など）。記号や説明は一切書かず4文字だけ出力してください。`;
+    `【会話のルール】\n` +
+    `1. 直近の会話履歴とプレイヤーの直前の質問・ツッコミ・感想の内容を的確に受けて、ちゃんと答えになる【ぴったり4文字の日本語のみ】を出力してください。\n` +
+    `2. 毎回同じ単語にせず、プレイヤーが聞いた内容（あらすじ、値段、ツッコミ、挨拶など）に噛み合う4文字にしてください（例：キモタク、大福ゼロ、鳩の逆襲、剛速球鳩、全勝少年、それ秘密、見て確認、千円だよ など）。\n` +
+    `3. 記号や説明は一切書かず、4文字だけ出力してください。\n\n` +
+    `【直近の会話履歴】\n${recentLog}`;
 
   const aiText = await callGeminiFast(prompt);
   const fourCharAnswer = formatToFourChars(aiText, fallbackWord);
@@ -869,6 +948,7 @@ async function handleCinemaConversation(userText) {
 // ====================================================
 async function startDinnerShowScene() {
   currentScene = "taxi";
+  resetChatHistory();
   setSceneVisual("taxi");
   clearActionButtons();
   document.getElementById("chat-box").style.display = "none";
@@ -946,17 +1026,25 @@ async function handleTaxiConversation(userText) {
     ]
   );
 
-  const prompt =
-    `あなたはタクシー運転手の「末広涼子」（モデルは広末涼子）。情緒不安定でハイテンション。\n` +
-    `口癖は「末広です」「１８５キロの安全運転で行かさせていただきます」。\n` +
-    `乗客の発言「${userText}」に対して、口癖を交えて2〜3文で返答してください。\n` +
-    (taxiFlatterCount >= 3
-      ? `乗客に3回褒められて最高に「きもちく」なったので、最後に必ず「車に入ってくれてありがとう！！ それでは１８５キロの安全運転で行かさせていただきます！！」と叫んで出発してください。`
+  const recentLog = getRecentHistoryText();
+  const taxiGoalInstruction =
+    taxiFlatterCount >= 3
+      ? `乗客に3回褒められて最高に「きもちく」なったので、直前の発言に嬉しく反応したあと、最後に必ず「車に入ってくれてありがとう！！ それでは１８５キロの安全運転で行かさせていただきます！！」と叫んで出発してください。`
       : taxiFlatterCount === 2
-      ? `乗客に2回褒められてかなり「きもちく」なってきたので、大喜びしつつ「あと1回だけおだててもらえたら出発します」と伝えてください。`
+      ? `乗客に2回褒められてかなり「きもちく」なってきたので、直前の発言にしっかり喜びつつ「あと1回だけおだててもらえたら出発します」と伝えてください。`
       : taxiFlatterCount === 1
-      ? `乗客に褒められて少しずつ「きもちく」なってきたので、喜びつつ「もっとおだててほしい」と伝えてください。`
-      : `もっと自分の美貌や運転を褒めておだててほしいと情緒たっぷりにねだってください。`);
+      ? `乗客に褒められて少しずつ「きもちく」なってきたので、直前の発言に照れながら反応しつつ「もっとおだててほしい」と伝えてください。`
+      : `直前の発言に真っ正面から反応したうえで、もっと自分の美貌や運転を褒めておだててほしいと情緒たっぷりにねだってください。`;
+
+  const prompt =
+    `あなたはタクシー運転手の「末広涼子」（モデルは広末涼子）。少し情緒不安定でハイテンションな性格です。\n` +
+    `口癖は「末広です」「１８５キロの安全運転で行かさせていただきます」（会話の流れに自然なときに入れてください）。\n` +
+    `【会話のルール】\n` +
+    `1. まずは乗客（プレイヤー）の直前の発言（質問・ツッコミ・感想・褒め言葉）に真っ正面から反応し、会話のキャッチボールを成立させてください。\n` +
+    `2. 「185キロは危なくない？」「なんで出発しないの？」等の疑問やツッコミにもはぐらかさず、彼女なりの理屈や感情でちゃんと答えてください。\n` +
+    `3. 2〜3文程度の普通のセリフ文章のみで出力してください。\n\n` +
+    `【直近の会話履歴】\n${recentLog}\n\n` +
+    `【今回の返答指示】\n${taxiGoalInstruction}`;
 
   const aiText = await callGeminiFast(prompt);
 
@@ -1005,6 +1093,7 @@ async function startDinnerShowVenuePart() {
   await streamStoryText(isorokuLore);
 
   currentScene = "dinner_table";
+  resetChatHistory();
   setSceneVisual("dinner_table");
   dinnerTalkCount = 0;
 
@@ -1044,10 +1133,16 @@ async function handleDinnerTableConversation(userText) {
     ]
   );
 
+  const recentLog = getRecentHistoryText();
   const prompt =
-    `あなたはロックな老人「外田裕也」（モデルは内田裕也）。隣には妻の「危機キリン」（モデルは樹木希林）がいますが、危機キリンは完全に無言です。\n` +
+    `あなたは南島五十六郎のディナーショー会場で同じテーブルに座っているロックな老人「外田裕也」（モデルは内田裕也）です。隣には妻の「危機キリン」（モデルは樹木希林）がいますが、危機キリンは完全に無言です。\n` +
     `外田裕也の口癖は「ロッケンロール」「ロッケンロールヨロシク」で、トークの文末は必ず「試験管ベイビー」で終わります。\n` +
-    `プレイヤーの発言「${userText}」に対して、外田裕也のセリフ（文末は試験管ベイビー）と、危機キリンの無言（「…………」）を出力してください。`;
+    `【会話のルール】\n` +
+    `1. まずはプレイヤーの直前の発言（質問・ツッコミ・危機キリンへの呼びかけ・ディナーショーの話題など）に真っ正面から反応し、会話のキャッチボールを成立させてください。\n` +
+    `2. プレイヤーが疑問やツッコミを入れたときは、はぐらかさずロックな老人らしくちゃんと答えてください。\n` +
+    `3. 以下の形式で2〜3文程度にまとめて出力してください。\n` +
+    `【外田裕也】\n「（セリフ。最後は必ず試験管ベイビーで締める）」\n\n【危機キリン】\n「………………」\n\n` +
+    `【直近の会話履歴】\n${recentLog}`;
 
   let reply = await callGeminiFast(prompt);
 
@@ -1107,6 +1202,7 @@ async function runDinnerShowClimax() {
 // ====================================================
 async function startDomeScene() {
   currentScene = "dome_train";
+  resetChatHistory();
   setSceneVisual("black");
   clearActionButtons();
   document.getElementById("chat-box").style.display = "none";
@@ -1133,6 +1229,7 @@ async function startDomeScene() {
   await streamStoryText(trainStory);
 
   currentScene = "scalper";
+  resetChatHistory();
   setSceneVisual("scalper");
 
   const scalperIntro =
@@ -1187,14 +1284,22 @@ async function handleScalperConversation(userText) {
   } else if (scalperFlags.marcia && !scalperFlags.affair) {
     scalperInstruction =
       "マルシア（まーちゃん）の名前を出されて激しく動揺し、『俺が昔、別の女性とよそ見して週刊誌に撮られたみたいなことまで蒸し返す気じゃないだろうな……！？』と浮気していたっぽい空気を匂わせてください。";
+  } else if (scalperFlags.affair && !scalperFlags.marcia) {
+    scalperInstruction =
+      "浮気・不倫の話題を突かれてかなり動揺しつつも、まだ「自分がずっと謝り続けている相手の名前」は言われていないので強がってください。";
   } else {
     scalperInstruction =
-      "まだチケットは渡さず、動揺しつつも強がってください。";
+      "まだチケットは渡さず、プレイヤーの言葉にしっかり返答しつつも強がってください。";
   }
 
+  const recentLog = getRecentHistoryText();
   const prompt =
     `あなたは東京ドーム前のダフ屋「大亀義丹」です。しゃべった後の文末は必ず「まーちゃんゴメンね」で終わります。\n` +
-    `プレイヤーの発言「${userText}」に対して、2〜3文で返答し、必ず文末を「まーちゃんゴメンね」にしてください。\n` +
+    `【会話のルール】\n` +
+    `1. まずはプレイヤーの直前の発言（質問・値段交渉・ツッコミ・揺さぶり）に真っ正面から反応し、会話のキャッチボールを成立させてください。\n` +
+    `2. プレイヤーが疑問やツッコミを入れたときは、はぐらかさずダフ屋らしく掛け合いを返してください。\n` +
+    `3. 2〜3文程度の普通のセリフ文章のみで出力し、必ず文末を「まーちゃんゴメンね」で締めてください。\n\n` +
+    `【直近の会話履歴】\n${recentLog}\n\n` +
     `【今回の返答指示】\n${scalperInstruction}`;
 
   const aiText = await callGeminiFast(prompt);
@@ -1260,6 +1365,7 @@ async function runTitleMatchMainPart() {
 // ====================================================
 async function startFarmerScene() {
   currentScene = "farmer";
+  resetChatHistory();
   setSceneVisual("farmer");
   clearActionButtons();
   document.getElementById("chat-box").style.display = "none";
@@ -1334,7 +1440,7 @@ async function handleFarmerConversation(userText) {
   const shouldDropHint = farmerTalkCount >= 7 && !allCleared;
 
   let farmerTopicInstruction =
-    "今は農繁期で叶姉妹の出荷で大忙しだと豪快に話し、叶姉妹の栽培について質問するよう世間話をしてください。";
+    "プレイヤーの発言に豪快に答えつつ、農繁期で叶姉妹の出荷が大忙しな様子や栽培の話題で楽しく会話してください。";
   if (selectedFarmerTopic === "sugar") {
     farmerTopicInstruction =
       "『糖度の高い叶姉妹の作り方』として、畑に海水を巻くことで叶姉妹が飢餓を感じて水分を閉じ込め、通常は糖度10のところ糖度80の叶姉妹が収穫できることだけを熱く語ってください。";
@@ -1351,9 +1457,14 @@ async function handleFarmerConversation(userText) {
       "\nさらに、プレイヤーと7回以上会話して仲良くなったので、セリフの後半で必ず『ところでよぉ、世の中には畑で作る人工ではない叶姉妹とか、山に生えてる珍しい叶姉妹とか、いろんな叶姉妹のバリエーション（種類・品種）や甘くする育て方があるって知ってるか？』とワードを匂わせる発言を付け加えてください。";
   }
 
+  const recentLog = getRecentHistoryText();
   const prompt =
-    `あなたは「叶姉妹農家」の豪快なベテランおやじです。\n` +
-    `プレイヤーの発言「${userText}」に対して、2〜3文で回答してください。\n` +
+    `あなたは畑で叶姉妹を育てている「叶姉妹農家」の豪快で気さくなベテランおやじです。\n` +
+    `【会話のルール】\n` +
+    `1. まずはプレイヤーの直前の発言（質問・ツッコミ・感想・驚き）に真っ正面から反応し、会話のキャッチボールを成立させてください。\n` +
+    `2. プレイヤーが疑問文やツッコミを入れたときは、はぐらかさず農家のおやじらしく真剣かつ豪快に答えてください。\n` +
+    `3. 2〜3文程度の普通のセリフ文章のみで出力してください。\n\n` +
+    `【直近の会話履歴】\n${recentLog}\n\n` +
     `【今回の返答内容】\n${farmerTopicInstruction}`;
 
   let reply = await callGeminiFast(prompt);
@@ -1502,6 +1613,7 @@ async function streamStoryText(text, pauseAfterLast = true) {
 }
 
 function streamNpcChat(speaker, text) {
+  recordChatHistory(speaker, text);
   return new Promise((resolve) => {
     isTyping = true;
     disableChatInput(true);
@@ -1541,6 +1653,7 @@ function streamNpcChat(speaker, text) {
 }
 
 function appendPlayerChat(text) {
+  recordChatHistory("あなた", text);
   const screenEl = document.getElementById("screen");
   const displayEl = document.getElementById("text-display");
 
@@ -1749,7 +1862,7 @@ async function callGeminiDirectWithKey(apiKey, promptText) {
             body: JSON.stringify({
               contents: [{ parts: [{ text: promptText }] }],
               generationConfig: {
-                maxOutputTokens: 800, // ★ 途中で会話が切れないよう 240 → 800 に拡大
+                maxOutputTokens: 800,
                 temperature: 0.9
               }
             })
